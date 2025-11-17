@@ -1,21 +1,34 @@
 all: build deploy
+
 ORIGIN ?= http://localhost:8080
 STACKNAME ?= aws-serverless-shopping-cart
 
+# File template nằm cùng thư mục Makefile con
+TEMPLATE_FILE = $(CURDIR)/$(TEMPLATE).yaml
+
 build:
-	@echo "Building template $(TEMPLATE).yaml..."
-	@sam build -t $(TEMPLATE).yaml
+	@echo "Building SAM template: $(TEMPLATE_FILE)"
+	@test -f $(TEMPLATE_FILE) || (echo "ERROR: Template file $(TEMPLATE_FILE) NOT FOUND!" && exit 1)
+	@sam build \
+		--template-file $(TEMPLATE_FILE) \
+		--base-dir $(CURDIR)
 
-deploy:  # s3 bucket still needed for layer
-	@echo "Deploying stack $(STACKNAME)-$(TEMPLATE)..."
-	@sam deploy --capabilities CAPABILITY_NAMED_IAM --stack-name $(STACKNAME)-$(TEMPLATE) --s3-bucket $(S3_BUCKET) --parameter-overrides AllowedOrigin=$(ORIGIN) --no-fail-on-empty-changeset
-
-tests:
-	py.test -v
+deploy:
+	@echo "Deploying stack $(STACKNAME)-$(TEMPLATE) ..."
+	@sam deploy \
+		--stack-name $(STACKNAME)-$(TEMPLATE) \
+		--s3-bucket $(S3_BUCKET) \
+		--capabilities CAPABILITY_NAMED_IAM \
+		--parameter-overrides AllowedOrigin=$(ORIGIN) \
+		--no-fail-on-empty-changeset
 
 delete:
+	@echo "Deleting stack $(STACKNAME)-$(TEMPLATE) ..."
 	@aws cloudformation delete-stack --stack-name $(STACKNAME)-$(TEMPLATE)
-	@echo "Waiting for stack $(STACKNAME)-$(TEMPLATE) to be deleted..."
 	@aws cloudformation wait stack-delete-complete --stack-name $(STACKNAME)-$(TEMPLATE)
+	@echo "Stack deleted."
 
-.PHONY: build package deploy delete
+tests:
+	pytest -v
+
+.PHONY: build deploy delete tests
