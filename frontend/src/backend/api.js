@@ -85,3 +85,12 @@ export async function cartCheckout() {
         })
     )
 }
+
+export async function getAdminStats() {
+    return getHeaders(true).then(
+        headers => API.get("CartAPI", "/admin/stats", {
+            headers: headers,
+            withCredentials: true
+        })
+    )
+}

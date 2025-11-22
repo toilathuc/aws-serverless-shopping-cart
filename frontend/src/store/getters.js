@@ -1,6 +1,9 @@
 import {
     Decimal
 } from "decimal.js"
+import {
+    userIsAdmin
+} from "@/utils/admin"
 
 
 const cartSize = (state) => {
@@ -20,10 +23,14 @@ const currentUser = (state) => {
 const getCart = (state) => {
     return state.cart.filter((prod) => prod.quantity > 0)
 }
+const isAdmin = (state) => {
+    return userIsAdmin(state.user)
+}
 
 export default {
     cartSize,
     cartTotalAmount,
     currentUser,
-    getCart
+    getCart,
+    isAdmin
 }
