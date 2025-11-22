@@ -1,6 +1,6 @@
 # ===================== GLOBAL CONFIG =====================
 AWS_PROFILE ?= default
-REGION ?= ap-southeast-2
+REGION ?= ap-southeast-1
 
 # Lấy AWS Account ID bằng đúng profile
 ACCOUNT_ID := $(shell aws sts get-caller-identity --profile $(AWS_PROFILE) --query Account --output text)

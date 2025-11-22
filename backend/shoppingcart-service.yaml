@@ -319,6 +319,36 @@ Resources:
             Method: get
 
   #####################################################
+  # Stats API
+  #####################################################
+  StatsFunction:
+    Type: AWS::Serverless::Function
+    DependsOn:
+      - LambdaLoggingPolicy
+    Properties:
+      CodeUri: shopping-cart-service/stats/
+      Handler: app.lambda_handler
+      Timeout: 10
+      Layers:
+        - !Ref UtilsLayer
+      Environment:
+        Variables:
+          AGG_TABLE_NAME: !Ref AggregateTable
+          ADMIN_GROUP: admin
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref AggregateTable
+      Events:
+        StatsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref CartApi
+            Path: /admin/stats
+            Method: get
+            Auth:
+              Authorizer: CognitoAuthorizer
+
+  #####################################################
   # ❗ FIXED FUNCTION — NGUYÊN NHÂN GÂY LỖI
   #####################################################
   DeleteFromCartFunction:
@@ -386,6 +416,18 @@ Resources:
   #####################################################
   # DynamoDB
   #####################################################
+  AggregateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-aggregate"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+
   DynamoDBShoppingCartTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -456,3 +498,6 @@ Outputs:
   CartApi:
     Description: "API Gateway endpoint URL"
     Value: !Sub "https://${CartApi}.execute-api.${AWS::Region}.amazonaws.com/Prod"
+  StatsUrl:
+    Description: "Admin stats endpoint URL"
+    Value: !Sub "https://${CartApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/admin/stats"
