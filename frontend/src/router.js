@@ -4,8 +4,8 @@ import store from '@/store/store.js'
 import Home from '@/views/Home.vue'
 import Payment from '@/views/Payment.vue'
 import Auth from '@/views/Auth.vue'
+import AdminStats from '@/views/AdminStats.vue'
 import {
-  components,
   AmplifyEventBus
 } from 'aws-amplify-vue';
 
@@ -13,6 +13,9 @@ import * as AmplifyModules from 'aws-amplify'
 import {
   AmplifyPlugin
 } from 'aws-amplify-vue'
+import {
+  userIsAdmin
+} from '@/utils/admin'
 
 Vue.use(AmplifyPlugin, AmplifyModules)
 
@@ -71,6 +74,14 @@ const routes = [{
     meta: {
       requiresAuth: true
     }
+  },
+  {
+    path: '/admin/stats',
+    component: AdminStats,
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true
+    }
   }
 ]
 
@@ -80,18 +91,26 @@ const router = new VueRouter({
 })
 
 router.beforeResolve(async (to, from, next) => {
-  if (to.matched.some(record => record.meta.requiresAuth)) {
-    let user = await getUser();
-    if (!user) {
-      return next({
-        path: '/auth',
-        query: {
-          redirect: to.fullPath,
-        }
-      });
-    }
+  if (!to.matched.some(record => record.meta.requiresAuth)) {
     return next()
   }
+
+  let user = await getUser();
+  if (!user) {
+    return next({
+      path: '/auth',
+      query: {
+        redirect: to.fullPath,
+      }
+    });
+  }
+
+  if (to.matched.some(record => record.meta.requiresAdmin) && !userIsAdmin(user)) {
+    return next({
+      path: '/'
+    });
+  }
+
   return next()
 })
 

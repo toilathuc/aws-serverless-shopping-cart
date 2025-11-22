@@ -10,6 +10,9 @@
         </router-link>
       </v-toolbar-title>
       <v-toolbar-items>
+        <v-btn to="/admin/stats" v-if="isAdmin" text class="ml-2">
+          Admin Stats
+        </v-btn>
         <v-btn to="/auth" v-if="!currentUser" text class="ml-2">Sign In</v-btn>
         <cart-button @drawerChange="toggleDrawer" />
         <div class="sign-out">
@@ -53,7 +56,7 @@ export default {
     this.$store.dispatch("fetchCart");
   },
   computed: {
-    ...mapGetters(["cartSize", "currentUser"]),
+    ...mapGetters(["cartSize", "currentUser", "isAdmin"]),
     ...mapState(["cartLoading"])
   },
   methods: {
