@@ -14,8 +14,8 @@ Parameters:
     Default: '/serverless-shopping-cart-demo/auth/user-pool-id'
 
   ProductServiceUrl:
-    Type: 'AWS::SSM::Parameter::Value<String>'
-    Default: '/serverless-shopping-cart-demo/products/products-api-url'
+    Type: String
+    Default: 'https://a1h84acitg.execute-api.ap-southeast-1.amazonaws.com/Prod'
 
   AllowedOrigin:
     Type: 'String'
