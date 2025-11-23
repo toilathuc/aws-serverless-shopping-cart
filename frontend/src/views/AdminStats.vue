@@ -62,25 +62,54 @@
                   Products in carts
                 </h3>
 
-                <v-data-table
-                  v-if="productRows.length"
-                  :headers="tableHeaders"
-                  :items="productRows"
-                  :items-per-page="5"
-                  class="elevation-1"
-                  dense
-                  disable-sort
-                >
-                  <template #item.product="{ item }">
-                    <div>
-                      <div class="font-weight-medium">{{ item.name }}</div>
-                      <div class="caption grey--text">{{ item.productId }}</div>
-                    </div>
-                  </template>
-                  <template #item.quantity="{ item }">
-                    <span class="font-weight-bold">{{ item.quantity }}</span>
-                  </template>
-                </v-data-table>
+                <div v-if="productRows.length">
+                  <v-data-table
+                    :headers="tableHeaders"
+                    :items="productRows"
+                    :items-per-page="5"
+                    class="elevation-1 mb-6"
+                    dense
+                    disable-sort
+                  >
+                    <template #item.product="{ item }">
+                      <div>
+                        <div class="font-weight-medium">{{ item.name }}</div>
+                        <div class="caption grey--text">{{ item.productId }}</div>
+                      </div>
+                    </template>
+                    <template #item.quantity="{ item }">
+                      <span class="font-weight-bold">{{ item.quantity }}</span>
+                    </template>
+                  </v-data-table>
+
+                  <h3 class="subtitle-1 font-weight-bold mb-2">
+                    Low-performing products
+                  </h3>
+                  <div v-if="lowPerformerRows.length">
+                    <v-sheet
+                      v-for="item in lowPerformerRows"
+                      :key="item.productId"
+                      class="pa-3 mb-3 rounded-lg elevation-1"
+                    >
+                      <div class="d-flex justify-space-between align-center mb-2">
+                        <div class="font-weight-medium">{{ item.name }}</div>
+                        <div class="caption grey--text">
+                          {{ item.quantity }} in carts
+                        </div>
+                      </div>
+                      <v-progress-linear
+                        :value="item.percentage"
+                        color="deep-orange"
+                        height="10"
+                        rounded
+                        striped
+                      />
+                    </v-sheet>
+                  </div>
+                  <div v-else class="body-2 grey--text">
+                    Not enough data to highlight low-performing products yet.
+                  </div>
+                </div>
                 <div v-else class="body-2 grey--text">
                   We have not recorded product-level totals yet.
                 </div>
@@ -166,6 +195,20 @@ export default {
           };
         })
         .sort((a, b) => b.quantity - a.quantity);
+    },
+    lowPerformerRows() {
+      const rows = this.productRows.filter((row) => row.quantity >= 0);
+      if (!rows.length) {
+        return [];
+      }
+      const sortedAsc = [...rows].sort((a, b) => a.quantity - b.quantity);
+      const maxQuantity = Math.max(...rows.map((row) => row.quantity), 1) || 1;
+      const limit = Math.min(sortedAsc.length, 5);
+
+      return sortedAsc.slice(0, limit).map((row) => ({
+        ...row,
+        percentage: row.quantity > 0 ? (row.quantity / maxQuantity) * 100 : 5
+      }));
     }
   },
   created() {

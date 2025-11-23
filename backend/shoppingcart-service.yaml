@@ -396,14 +396,20 @@ Resources:
       Handler: db_stream_handler.lambda_handler
       Layers:
         - !Ref UtilsLayer
+      Environment:
+        Variables:
+          AGG_TABLE_NAME: !Ref AggregateTable
+          AGGREGATE_PK: STATS
       Policies:
         - AWSLambdaDynamoDBExecutionRole
         - Statement:
             - Effect: Allow
               Action:
                 - dynamodb:UpdateItem
+                - dynamodb:PutItem
               Resource:
                 - !GetAtt DynamoDBShoppingCartTable.Arn
+                - !GetAtt AggregateTable.Arn
       Events:
         Stream:
           Type: DynamoDB
