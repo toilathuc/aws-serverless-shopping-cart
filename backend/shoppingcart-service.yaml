@@ -165,6 +165,21 @@ Resources:
       Roles:
         - !Ref AddToCartRole
 
+  FirehoseWritePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: FirehoseWritePolicy
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - firehose:PutRecord
+              - firehose:PutRecordBatch
+            Resource: !GetAtt OrderEventsFirehose.Arn
+      Roles:
+        - !Ref AddToCartRole
+
   SQSSendMessagePolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -289,6 +304,7 @@ Resources:
         Variables:
           PRODUCT_SERVICE_URL: !Ref ProductServiceUrl
           USERPOOL_ID: !Ref UserPoolId
+          ORDER_EVENTS_FIREHOSE: !Ref OrderEventsFirehose
       Events:
         Checkout:
           Type: Api
@@ -489,6 +505,63 @@ Resources:
 
   CartDeleteSQSDLQ:
     Type: AWS::SQS::Queue
+
+  #####################################################
+  # Analytics (Firehose -> S3)
+  #####################################################
+  AnalyticsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
+
+  FirehoseRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - firehose.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: FirehoseToS3Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:AbortMultipartUpload
+                  - s3:GetBucketLocation
+                  - s3:GetObject
+                  - s3:ListBucket
+                  - s3:ListBucketMultipartUploads
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !GetAtt AnalyticsBucket.Arn
+                  - !Sub "${AnalyticsBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  OrderEventsFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamType: DirectPut
+      S3DestinationConfiguration:
+        BucketARN: !GetAtt AnalyticsBucket.Arn
+        RoleARN: !GetAtt FirehoseRole.Arn
+        BufferingHints:
+          IntervalInSeconds: 60
+          SizeInMBs: 5
+        CompressionFormat: GZIP
+        Prefix: "order-events/year=!{timestamp:YYYY}/month=!{timestamp:MM}/day=!{timestamp:dd}/"
 
   #####################################################
   # Output

@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 import boto3
 from aws_lambda_powertools import Logger, Metrics, Tracer
@@ -12,9 +13,41 @@ tracer = Tracer()
 metrics = Metrics()
 
 dynamodb = boto3.resource("dynamodb")
+firehose_client = boto3.client("firehose")
 
 logger.debug("Initializing DDB Table %s", os.environ["TABLE_NAME"])
 table = dynamodb.Table(os.environ["TABLE_NAME"])
+firehose_stream_name = os.environ.get("ORDER_EVENTS_FIREHOSE")
+
+
+def publish_checkout_event(user_id, cart_items):
+    """
+    Send checkout event to Firehose for analytics. Soft-fails on error.
+    """
+    if not firehose_stream_name:
+        return
+
+    event = {
+        "type": "ORDER_CHECKOUT",
+        "userId": user_id,
+        "itemCount": len(cart_items or []),
+        "items": cart_items or [],
+        "createdAt": datetime.utcnow().isoformat() + "Z",
+    }
+
+    try:
+        firehose_client.put_record(
+            DeliveryStreamName=firehose_stream_name,
+            Record={"Data": (json.dumps(event) + "\n").encode("utf-8")},
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Failed to publish checkout event to Firehose",
+            extra={
+                "stream": firehose_stream_name,
+                "error": str(exc),
+            },
+        )
 
 
 @metrics.log_metrics(capture_cold_start_metric=True)
@@ -54,6 +87,7 @@ def lambda_handler(event, context):
 
     metrics.add_metric(name="CartCheckedOut", unit="Count", value=1)
     logger.info({"action": "CartCheckedOut", "cartItems": cart_items})
+    publish_checkout_event(user_id, cart_items)
 
     return {
         "statusCode": 200,
