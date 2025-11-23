@@ -1,5 +1,6 @@
 import json
 import os
+from uuid import uuid4
 
 import boto3
 from aws_lambda_powertools import Logger, Metrics, Tracer
@@ -12,9 +13,30 @@ tracer = Tracer()
 metrics = Metrics()
 
 dynamodb = boto3.resource("dynamodb")
+sqs = boto3.client("sqs")
 
 logger.debug("Initializing DDB Table %s", os.environ["TABLE_NAME"])
 table = dynamodb.Table(os.environ["TABLE_NAME"])
+background_queue_url = os.environ.get("BACKGROUND_QUEUE_URL")
+
+
+def publish_background_job(task_type, payload):
+    """
+    Send a background job to SQS. Soft-fails if queue not configured.
+    """
+    if not background_queue_url:
+        return
+
+    sqs.send_message(
+        QueueUrl=background_queue_url,
+        MessageBody=json.dumps(
+            {
+                "taskId": str(uuid4()),
+                "taskType": task_type,
+                "payload": payload,
+            }
+        ),
+    )
 
 
 @metrics.log_metrics(capture_cold_start_metric=True)
@@ -54,6 +76,14 @@ def lambda_handler(event, context):
 
     metrics.add_metric(name="CartCheckedOut", unit="Count", value=1)
     logger.info({"action": "CartCheckedOut", "cartItems": cart_items})
+    publish_background_job(
+        "SEND_ORDER_EMAIL",
+        {
+            "userId": user_id,
+            "cartId": cart_id,
+            "items": cart_items or [],
+        },
+    )
 
     return {
         "statusCode": 200,

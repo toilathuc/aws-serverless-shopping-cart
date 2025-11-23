@@ -175,7 +175,9 @@ Resources:
           - Effect: Allow
             Action:
               - sqs:SendMessage*
-            Resource: !GetAtt CartDeleteSQSQueue.Arn
+            Resource:
+              - !GetAtt CartDeleteSQSQueue.Arn
+              - !GetAtt BackgroundQueue.Arn
       Roles:
         - !Ref AddToCartRole
 
@@ -289,6 +291,7 @@ Resources:
         Variables:
           PRODUCT_SERVICE_URL: !Ref ProductServiceUrl
           USERPOOL_ID: !Ref UserPoolId
+          BACKGROUND_QUEUE_URL: !Ref BackgroundQueue
       Events:
         Checkout:
           Type: Api
@@ -490,6 +493,32 @@ Resources:
   CartDeleteSQSDLQ:
     Type: AWS::SQS::Queue
 
+  BackgroundDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  BackgroundQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 60
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt BackgroundDLQ.Arn
+        maxReceiveCount: 3
+
+  BackgroundWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: shopping-cart-service/
+      Handler: background_worker.lambda_handler
+      Timeout: 30
+      MemorySize: 256
+      Events:
+        BackgroundQueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt BackgroundQueue.Arn
+            BatchSize: 5
   #####################################################
   # Output
   #####################################################
